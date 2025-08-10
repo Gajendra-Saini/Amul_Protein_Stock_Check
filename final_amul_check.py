@@ -13,11 +13,10 @@ from email.mime.text import MIMEText
 import os
 
 # ==== Config from Environment Variables ====
-PINCODE = os.getenv("PINCODE", "560037")  # Defaults to 560037 for local runs
+PINCODE = os.getenv("PINCODE")
 SENDER_EMAIL = os.getenv("SENDER_EMAIL")
 RECEIVER_EMAIL = os.getenv("RECEIVER_EMAIL")
 APP_PASSWORD = os.getenv("APP_PASSWORD")
-
 
 def send_email_report(results):
     """Send product availability results via Gmail SMTP"""
@@ -36,73 +35,58 @@ def send_email_report(results):
     except Exception as e:
         print(f"❌ Email sending failed: {e}")
 
-
 def set_location_by_pincode(driver):
-    """Set pincode by clicking change link (if present), entering PIN, and confirming"""
+    """Enter pincode and apply it on the page"""
     wait = WebDriverWait(driver, 15)
     try:
-        # First try to click 'Change Delivery Pincode' if it's there
-        try:
-            change_pincode = wait.until(
-                EC.element_to_be_clickable((By.XPATH, "//span[contains(text(), 'Change Delivery Pincode')]"))
-            )
-            change_pincode.click()
-            print("🔁 Clicked 'Change Delivery Pincode'")
-            time.sleep(1)
-        except Exception:
-            print("ℹ️ Change Delivery Pincode link not found, maybe already in edit mode.")
-
-        # Enter pincode
         pincode_input = wait.until(
             EC.visibility_of_element_located((By.XPATH, "//input[@placeholder='Enter Your Pincode']"))
         )
+        time.sleep(1)
         pincode_input.clear()
         pincode_input.send_keys(PINCODE)
-        print(f"📍 Entered pincode: {PINCODE}")
+        print(f"📍 Entered pincode: {PINCODE} (hidden in logs).")
 
-        # Click Apply
+        pincode_suggestion = wait.until(
+            EC.element_to_be_clickable((By.XPATH, f"//a[@role='button']//p[text()='{PINCODE}']"))
+        )
+        pincode_suggestion.click()
+        print("📌 Clicked pincode suggestion.")
+
         apply_button = wait.until(
             EC.element_to_be_clickable((By.XPATH, "//button[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'apply')]"))
         )
         apply_button.click()
-        print("✅ Clicked Apply button.")
+        print("✅ Applied pincode successfully.")
 
-        # Confirm by checking that the loc_area div contains the correct PIN
-        wait.until(
-            EC.visibility_of_element_located(
-                (By.XPATH, f"//div[contains(@class, 'loc_area')]//span[contains(text(), '{PINCODE}')]")
-            )
-        )
-        print(f"📌 Pincode {PINCODE} set successfully.")
-
-        time.sleep(2)  # short wait to allow page update
+        time.sleep(3)
     except Exception as e:
         print(f"⚠️ Could not set pincode: {e}")
 
-
 def check_product_availability(driver, url, product_name):
-    """Check if a given Amul product is available for the set pincode"""
+    """Check if a given Amul product is available"""
+    print(f"🌐 Loading: {url}")
     driver.get(url)
     set_location_by_pincode(driver)
 
     try:
         driver.find_element(By.XPATH, "//div[@class='alert alert-danger mt-3' and contains(text(),'Sold Out')]")
-        return f"{product_name} -> Out of Stock"
+        return f"{PINCODE} - {product_name} -> Out of Stock"
     except NoSuchElementException:
         pass
 
     try:
         driver.find_element(By.CSS_SELECTOR, "div.price-wrap.product-prices.text-left.pt-3")
-        return f"{product_name} -> Available"
+        return f"{PINCODE} - {product_name} -> Available"
     except NoSuchElementException:
         pass
 
-    return f"{product_name} -> Unknown"
-
+    return f"{PINCODE} - {product_name} -> Unknown"
 
 def main():
     options = Options()
-    options.add_argument("--headless=new")  # Keep headless for automation; comment for debugging
+    # Run in headless mode for automation
+    options.add_argument("--headless=new")
     options.add_argument("--disable-gpu")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
@@ -110,37 +94,40 @@ def main():
 
     driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
 
-    # ✅ Now 6 products including Kool Protein Milkshake
     products = {
         "protein_milk_32": "https://shop.amul.com/en/product/amul-high-protein-milk-250-ml-or-pack-of-32",
         "rose_lassi": "https://shop.amul.com/en/product/amul-high-protein-rose-lassi-200-ml-or-pack-of-30",
         "buttermilk": "https://shop.amul.com/en/product/amul-high-protein-buttermilk-200-ml-or-pack-of-30",
         "plain_lassi": "https://shop.amul.com/en/product/amul-high-protein-plain-lassi-200-ml-or-pack-of-30",
         "protein_milk_8": "https://shop.amul.com/en/product/amul-high-protein-milk-250-ml-or-pack-of-8",
-        "kool_protein_milkshake": "https://shop.amul.com/en/product/amul-kool-protein-milkshake-or-arabica-coffee-180-ml-or-pack-of-30",
+        "arabica_coffee": "https://shop.amul.com/en/product/amul-kool-protein-milkshake-or-arabica-coffee-180-ml-or-pack-of-30"
     }
 
     results = []
+    available_found = False
+
     for name, url in products.items():
-        print(f"\n🔍 Checking {name} ...")
+        print(f"🔍 Checking {name} ...")
         status_line = check_product_availability(driver, url, name)
         results.append(status_line)
+
+        if "Available" in status_line:
+            available_found = True
+
         print(status_line)
         print("-" * 40)
+
+    driver.quit()
 
     print("\n✅ Final Availability Status:")
     for line in results:
         print(line)
 
-    # Send email only if any product is available
-    if any("Available" in r for r in results):
-        print("📧 At least one product available — sending email...")
+    if available_found:
+        print("📬 At least one product is available — sending email...")
         send_email_report(results)
     else:
-        print("📭 No products available — email not sent.")
-
-    driver.quit()
-
+        print("🚫 No products available — skipping email.")
 
 if __name__ == "__main__":
     main()
