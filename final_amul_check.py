@@ -20,7 +20,10 @@ APP_PASSWORD = os.getenv("APP_PASSWORD")
 
 def send_email_report(results):
     """Send product availability results via Gmail SMTP"""
-    report_text = "\n".join(results)
+    # Filter out None or empty lines
+    clean_results = [line for line in results if line and "arabica_coffee" not in line.lower()]
+    report_text = "\n".join(clean_results)
+
     msg = MIMEText(report_text)
     msg['Subject'] = f'Amul Products Availability Report for {PINCODE}'
     msg['From'] = SENDER_EMAIL
@@ -94,13 +97,13 @@ def main():
 
     driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
 
+    # Products list (Arabica Coffee removed)
     products = {
         "protein_milk_32": "https://shop.amul.com/en/product/amul-high-protein-milk-250-ml-or-pack-of-32",
         "rose_lassi": "https://shop.amul.com/en/product/amul-high-protein-rose-lassi-200-ml-or-pack-of-30",
         "buttermilk": "https://shop.amul.com/en/product/amul-high-protein-buttermilk-200-ml-or-pack-of-30",
         "plain_lassi": "https://shop.amul.com/en/product/amul-high-protein-plain-lassi-200-ml-or-pack-of-30",
-        "protein_milk_8": "https://shop.amul.com/en/product/amul-high-protein-milk-250-ml-or-pack-of-8",
-        "arabica_coffee": "https://shop.amul.com/en/product/amul-kool-protein-milkshake-or-arabica-coffee-180-ml-or-pack-of-30"
+        "protein_milk_8": "https://shop.amul.com/en/product/amul-high-protein-milk-250-ml-or-pack-of-8"
     }
 
     results = []
