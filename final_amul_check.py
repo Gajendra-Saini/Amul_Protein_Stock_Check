@@ -13,7 +13,7 @@ from email.mime.text import MIMEText
 import os
 
 # ==== Config from Environment Variables ====
-PINCODE = os.getenv("PINCODE", "000000")  # Default placeholder, real one from Secrets
+PINCODE = os.getenv("PINCODE", "000000")  # Real PIN comes from GitHub Secrets
 SENDER_EMAIL = os.getenv("SENDER_EMAIL")
 RECEIVER_EMAIL = os.getenv("RECEIVER_EMAIL")
 APP_PASSWORD = os.getenv("APP_PASSWORD")
@@ -44,7 +44,7 @@ def set_location_by_pincode(driver):
         )
         pincode_input.clear()
         pincode_input.send_keys(PINCODE)
-        print(f"📍 Entered pincode (hidden in logs).")
+        print("📍 Entered pincode (hidden in logs).")
 
         pincode_suggestion = wait.until(
             EC.element_to_be_clickable((By.XPATH, f"//a[@role='button']//p[text()='{PINCODE}']"))
@@ -69,17 +69,17 @@ def check_product_availability(driver, url, product_name):
 
     try:
         driver.find_element(By.XPATH, "//div[@class='alert alert-danger mt-3' and contains(text(),'Sold Out')]")
-        return f"{PINCODE} - {product_name} -> Out of Stock"
+        return f"{product_name} -> Out of Stock"
     except NoSuchElementException:
         pass
 
     try:
         driver.find_element(By.CSS_SELECTOR, "div.price-wrap.product-prices.text-left.pt-3")
-        return f"{PINCODE} - {product_name} -> Available"
+        return f"{product_name} -> Available"
     except NoSuchElementException:
         pass
 
-    return f"{PINCODE} - {product_name} -> Unknown"
+    return f"{product_name} -> Unknown"
 
 def main():
     options = Options()
@@ -111,7 +111,13 @@ def main():
     for line in results:
         print(line)
 
-    send_email_report(results)
+    # Send email only if at least one product is available
+    if any("Available" in r for r in results):
+        print("📧 At least one product available — sending email...")
+        send_email_report(results)
+    else:
+        print("📭 No products available — email not sent.")
+
     driver.quit()
 
 if __name__ == "__main__":
