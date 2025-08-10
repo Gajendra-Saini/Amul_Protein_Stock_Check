@@ -13,7 +13,7 @@ from email.mime.text import MIMEText
 import os
 
 # ==== Config from Environment Variables ====
-PINCODE = os.getenv("PINCODE", "000000")  # Real PIN comes from GitHub Secrets
+PINCODE = os.getenv("PINCODE", "560037")  # Real PIN comes from GitHub Secrets
 SENDER_EMAIL = os.getenv("SENDER_EMAIL")
 RECEIVER_EMAIL = os.getenv("RECEIVER_EMAIL")
 APP_PASSWORD = os.getenv("APP_PASSWORD")
