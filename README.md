@@ -143,9 +143,3 @@ on:
 * **`selenium.common.exceptions.SessionNotCreatedException`**: Update Chrome & ChromeDriver.
 * **Email not sending**: Check Gmail App Password and that "Less secure apps" is not required (App Password bypasses this).
 * **Timeouts**: Your internet might be slow — increase wait times in `WebDriverWait`.
-
----
-
-## 📜 License
-
-MIT License — free to use & modify.
